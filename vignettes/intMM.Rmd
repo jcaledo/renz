@@ -1,0 +1,165 @@
+---
+title: "Integrated Michaelis-Menten Equation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Integrated Michaelis-Menten Equation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(renz)
+library(knitr)
+```
+
+## How many progress-curves do we need to estimate $K_m$ and $V_{max}$?
+
+Suppose we have a Michaelian enzyme whose kinetic parameters we want to determine. To this end, a conventional approach is to find the initial rates at different concentrations of the substrate, to obtain, in this way, a dataset relating substrate concentration to rate. In this approach, a progress-curve for each initial substrate concentration assayed need to be built in order to calculate the initial rate as the slope of the tangent line to the curve at time 0. 
+
+For instance, let's assay our enzyme at substrate concentrations 1, 2, 4, 8, 12, 20 and 30 mM.
+
+```{r include=FALSE}
+S <- c(1, 2, 4, 8, 12, 20, 30)
+data <- lapply(S, sE.progress, time = 5, Km = 4, Vm = 50, plot = FALSE)
+```
+
+At [S] = 1 mM:
+
+```{r echo=FALSE}
+t <- data[[1]]
+v <- round(-(t[2,2] - t[1,2])/(t[2,1] - t[1,1]), 1)
+plot(t[ , 1], t[ , 2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+text(t[2,1], t[4, 2], v, col = "blue", cex = 0.7)
+abline(t[1,2], -v, col = "blue")
+```
+
+At [S] = 2 mM:
+
+```{r echo=FALSE}
+t <- data[[2]]
+v <- round(-(t[2,2] - t[1,2])/(t[2,1] - t[1,1]), 1)
+plot(t[ , 1], t[ , 2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+text(t[2,1], 0.5, v, col = "blue", cex = 0.7)
+abline(t[1,2], -v, col = "blue")
+```
+
+At [S] = 4 mM:
+
+```{r echo=FALSE}
+t <- data[[3]]
+v <- round(-(t[2,2] - t[1,2])/(t[2,1] - t[1,1]), 1)
+plot(t[ , 1], t[ , 2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+text(t[2,1], t[length(t-1), 2], v, col = "blue", cex = 0.7)
+abline(t[1,2], -v, col = "blue")
+```
+
+At [S] = 8 mM:
+
+```{r echo=FALSE}
+t <- data[[4]]
+v <- round(-(t[2,2] - t[1,2])/(t[2,1] - t[1,1]), 1)
+plot(t[ , 1], t[ , 2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+text(t[3,1], t[length(t-1), 2], v, col = "blue", cex = 0.7)
+abline(t[1,2], -v, col = "blue")
+```
+
+At [S] = 12 mM:
+
+```{r echo=FALSE}
+t <- data[[5]]
+v <- round(-(t[2,2] - t[1,2])/(t[2,1] - t[1,1]), 1)
+plot(t[ , 1], t[ , 2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+text(t[3,1], t[length(t-1), 2], v, col = "blue", cex = 0.7)
+abline(t[1,2], -v, col = "blue")
+```
+
+
+At [S] = 20 mM:
+
+```{r echo=FALSE}
+t <- data[[6]]
+v <- round(-(t[2,2] - t[1,2])/(t[2,1] - t[1,1]), 1)
+plot(t[ , 1], t[ , 2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+text(t[3,1], t[length(t-1), 2], v, col = "blue", cex = 0.7)
+abline(t[1,2], -v, col = "blue")
+```
+
+At [S] = 30 mM:
+
+```{r echo=FALSE}
+t <- data[[7]]
+v <- round(-(t[2,2] - t[1,2])/(t[2,1] - t[1,1]), 1)
+plot(t[ , 1], t[ , 2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+text(t[5,1], t[10, 2], v, col = "blue", cex = 0.7)
+abline(t[1,2], -v, col = "blue")
+```
+
+
+Note that, in the current example, we have needed 7 progress-curves to collect the following dataset:
+
+```{r, echo=FALSE}
+Sv <- data.frame(S = S, v = c(8.1, 14.4, 23, 32.1, 36.7, 41.3, 43.9))
+names(Sv) <- c('[S] (mM)', 'v (mM/min)')
+kable(t(Sv))
+```
+
+Afterwards, we can proceed to estimate $K_m$ and $V_{max}$, for instance, by fitting our data to the Michaelis-Menten model:
+
+```{r}
+dir.MM(Sv, unit_v = "mM/min")
+```
+Although we have succeeded in our aim (estimating the kinetic parameters) we have needed 7 progress-curves. Wouldn't be nice to be able get $K_m$ and $V_{max}$ from one single progress-curve? Well, that is precisely what the integrated Michaelis-Menten equation allow us.
+
+## Integrating the Michaelis-Menten equation
+
+Suppose that, starting from an initial concentration of substrate 1 mM, we monitor their evolution over time, obtaining the following data:
+
+```{r echo=FALSE}
+data <- round(data[[1]][, c(1,2)], 3)
+names(data) <- c("t (min)", "[S] (mM)")
+kable(data)
+```
+
+
+
+```{r, echo=FALSE}
+plot(data[,1] , data[,2], ty = "b", xlab = "Time (min)", ylab = "[S] (mM)")
+```
+
+Assuming that the substrate concentration drops as it is converted into a product by the direct unidirectional reaction catalyzed by our enzyme (this is only true when the reverse reaction is negligible, for example in hydrolysis reactions), and that the product has no effect on the catalyzed reaction rate, then we can relate the variation in the concentration of substrate over time integrating the velocity equation.
+
+\begin{equation}
+\tag{1}
+v = \frac{-d[S]}{dt} = V_{max} \frac{[S]}{[S] + K_m}
+\end{equation}
+
+\begin{equation}
+\tag{2}
+\int_{S_o}^{S_t} \frac{[S] + K_m}{[S]} d[S] = -\int_{0}^t V_{max} dt
+\end{equation}
+
+\begin{equation}
+\tag{3}
+\frac{1}{t} \ln \frac{S_o}{S_t} = - \frac{1}{K_m} \frac{(S_o - S_t)}{t} + \frac{V_{max}}{K_m}
+\end{equation}
+
+Equation (3) can be recognized as the equation of a line where the dependent variable is $\frac{1}{t} \ln \frac{S_o}{S_t}$ and the independent variable is $\frac{(S_o - S_t)}{t}$. Thus, if the data given in the table above are conveniently transformed, they can be fit to a line by least square. 
+
+The function *int.MM()* from the package *renz* takes as argument a dataframe where the first column is time and the second column is [S], and returns both the kinetic parameters and a dataframe with the transformed variable:
+
+```{r}
+result <- int.MM(data)
+```
+
+## Some final considerations
+
+In addition to saving us work, since a single progress-curve is enough to estimate the kinetic parameter, this method has an additional advantage: since the method does not employ initial rates, it avoid the bias introduced by underestimating initial rates (see doi: 10.1016/0307-4412(85)90008-1). Nevertheless, before using this approach, we have to make sure that the rate of the inverse reaction is negligible and that the product of the reaction does not affect the direct reaction rate. 
+
+

@@ -1,0 +1,124 @@
+---
+title: "Michaelis-Menten and the Lambert W function"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Michaelis-Menten and the Lambert W function}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(renz)
+```
+
+## Stating the problem we want to solve
+
+For the sake of concretion, let's consider a michaelian enzyme with $Km = 2$ mM and $V_{max} = 0.1$ mM/min, which catalyzes an essentially irreversible reaction (the rate of the inverse reaction is negligible). Now, we start the reaction a time 0 with a substrate concentration of 1 mM. Can we predict the time-course of the substrate concentration? For instance, what would be the concentration of substrate remaining after 30 min?
+
+Of course we can! The function **sE.progress()** can do this job for us:
+
+```{r}
+d <- sE.progress(So = 1, time = 60, Km = 2, Vm = 0.1, plot = FALSE)
+```
+
+We can now plot the results:
+
+```{r}
+plot(d$t, d$St, ty = 'l', xlab = "Time (min)", ylab = "[S] (mM)")
+points(d$t[which(d$t == 30)], d$St[which(d$t == 30)], pch = 19, col = "red")
+text(30, 0.5, paste("(30, ", round(d$St[which(d$t == 30)], 2), ")", sep = ""), col = "red")
+```
+
+However, the theoretical principles that allow us to find the desired solution are not so trivial. The function **sE.progress()**, that we have used to predict [S] after 30 min of reaction, as well as the function **fE.progress** that estimates the kinetic parameters given a single progress-curve for the substrate, both invoke the so-called Lambert W function. For the reader interested in the theory behind the scene, we will provide next some orientation.
+
+## The integrated Michaelis-Menten
+
+Given that the Michaelis-Menten equation is the derivative of substrate concentration with respect to time, its integral should inform us of how the substrate concentration varies over time, which is our aim. Thus, let's integrate it.
+
+
+\begin{equation}
+\tag{1}
+v = \frac{-d[S]}{dt} = V_{max} \frac{[S]}{[S] + K_m}
+\end{equation}
+
+\begin{equation}
+\tag{2}
+\int_{S_o}^{S_t} \frac{[S] + K_m}{[S]} d[S] = -\int_{0}^t V_{max} dt
+\end{equation}
+
+\begin{equation}
+\tag{3}
+\frac{1}{t} \ln \frac{S_o}{S_t} = - \frac{1}{K_m} \frac{(S_o - S_t)}{t} + \frac{V_{max}}{K_m}
+\end{equation}
+
+We can easily rewrite this last equation in exponential form:
+
+\begin{equation}
+\tag{4}
+\frac{S_t}{K_m} e^{\frac{S_t}{K_m}} = \frac{S_o}{K_m} e^{\frac{-V_{max}t + S_o}{K_m}} 
+\end{equation}
+
+At this point we face a problem: how to solve the variable $S_t$? This where the Lambert W function comes into play. So, before showing the solution, let's introduce this useful function.
+
+## The Lambert W function
+
+Let's consider the function $y = x e^x$. Given a value of $x$, it is straightforward to compute the $y$-value. However, we will be interested in the inverse operation, that is, given a value of $y$, find the corresponding value of $x$. Thus, we define the Lambert W function as:
+
+\begin{equation}
+\tag{5}
+W(y) = x
+\end{equation}
+
+To find the desired value of $x$ we can define the function $f(x) = xe^x -y$ and resort to numerical methods to find their roots. To this end, we can use the Newton method:
+
+\begin{equation}
+\tag{6}
+x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}
+\end{equation}
+
+Let's see how to proceed with a concrete example. Let's say we want to know what value of $x$ satisfies the equation $1 = xe^x$. Then, the function for which we have to search their roots will be $f(x) = xe^x - 1$. Thus, using the Newton method, we will have to iterate for 
+
+\begin{equation}
+\tag{7}
+x_{n+1} = x_n - \frac{xe^x - 1}{e^x(1 + x)}
+\end{equation}
+
+Next, we show the first 5 iterations, starting with a seed x = 0:
+
+```{r}
+x <- 0
+for(i in 1:5){
+  x <- x - (x*exp(x) -1)/(exp(x)*(1 + x))
+  print(paste("iteration ", i, ":    x = ", x, ", y = ", x*exp(x), sep = ""))
+}
+```
+
+Just for the sake of curiosity, $W(1) = \Omega$. That is, the value of $x$ we have found, 0.567..., is named omega.
+
+## Fitting the progress curve for enzyme-catalyzed reactions
+
+Now that we know how to solve the  $S_t$ variable from equation (4) using the approach allowed by the Lambert W function (in the Enzymology field this is known as the Schnell-Mendoza equation), we will illustrate how the function **fE.progress**, which makes use of the Schnell-Mendoza equation, allows us to obtain, from one single progress curve, the kinetic parameters of the enzyme.
+
+Suppose we have obtained the following data for from a progression curve:
+
+```{r echo=FALSE}
+library(knitr)
+data <- data.frame(t = d$t[seq(1,100,5)], S = d$S_mean[seq(1,100,5)])
+kable(data)
+```
+
+If we use these data to build a dataframe call "data", then fE.progress(data) will fit the progression curve to estimate $K_m$ and $V_{max}$:
+
+```{r}
+fE.progress(data)
+```
+
+Note that for comparison purposes, this function also fits the linearized integrated equation
+

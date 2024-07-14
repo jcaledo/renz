@@ -1,0 +1,212 @@
+---
+title: "Linearized Michaelis-Menten Equations"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Linearized Michaelis-Menten Equations}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(renz)
+library(knitr)
+data(ONPG, package = "renz")
+```
+
+## Loading kinetic data
+
+We start by loading some kinetic data obtained by students during their undergraduate laboratory training. Using $\beta$-galactosidase as an enzyme model, the students assess the effect of the substrate o-nitrophenyl-$\beta$-D-galactopynaroside (ONPG) on the initial rate (doi: 10.1002/bmb.21522). The data obtained by eight different groups of students can be loaded just typing:
+
+```{r}
+kable(ONPG)
+```
+The first column gives the ONPG concentrations in mM, and the remaining 8 columns correspond to the initial rates. Note that while groups 1, 2, 7 and 8 decided to express their rates as $\mu$M/min, the remaining groups opted by mM/min.  This information can be confirmed by checking the attributes of data:
+
+```{r}
+attributes(ONPG)
+```
+
+Thus, before continuing we are going to express all the rates using the same units: $\mu$M/min:
+
+```{r}
+ONPG[ , 4:7] <- 1000 * ONPG[ , 4:7]
+```
+
+## First thing first: scatter plot
+
+I strongly insist to my students that when we have to analyze data, the first thing we must do is a scatter diagram, since this will give us a first impression about our data and will guide us on how to proceed with the analysis. To lead by example, we will carry out such diagrams.
+
+The first four groups:
+
+```{r}
+oldmar <- par()$mar
+oldmfrow <- par()$mfrow
+par(mfrow = c(2, 2))
+par(mar = c(4, 4,1,1))
+for (i in 2:5){
+  plot(ONPG$ONPG, ONPG[, i],
+       ty = 'p', ylab = 'v (uM/min)', xlab = '[ONPG] (mM)')
+}
+par(mar = oldmar)
+par(mfrow = oldmfrow)
+```
+
+The next four groups:
+
+```{r}
+oldmar <- par()$mar
+oldmfrow <- par()$mfrow
+par(mfrow = c(2, 2))
+par(mar = c(4, 4,1,1))
+for (i in 6:9){
+  plot(ONPG$ONPG, ONPG[, i],
+       ty = 'p', ylab = 'v (uM/min)', xlab = '[ONPG] (mM)')
+}
+par(mar = oldmar)
+par(mfrow = oldmfrow)
+```
+
+In general, the data look OK. That is, the relationship between the dependent variable (initial rate) and the independent variable ([ONPG]) is what we expect: hyperbolic curve. An exception is the rate obtained by group 2 when [ONPG] = 8 mM, which is clearly an "outlier". No problem! We will remove that point from further analysis to prevent it from introducing artifacts. 
+
+```{r}
+ONPG$v2[8] <- NA
+```
+
+## Linearizing the Michaelis-Menten equation
+
+The package *renz* provides four functions to obtain $K_m$ and $V_{max}$ using linear fitting of linearized Michaelis-Menten equations:
+
+* lb() (Lineweaver-Burk).
+* hw() (Hanes-Woolf).
+* eh() (Eadie-Hofstee).
+* ecb() (Eisenthal & Cornish-Bowden).
+
+### Lineweaver-Burk
+
+Starting from the Michaelis-Menten equation and taking the inverses in both sides, one can obtain:
+
+\begin{equation}
+\tag{1}
+\frac{1}{v} = \frac{K_m}{V_{max}} \frac{1}{[S]} + \frac{1}{V_{max}} 
+\end{equation}
+
+Thus, to analyze our data using this equation we need to take the inverse of the substrate concentration and the inverse of the initial rate and fit them to the equation of a line. This can be achieved using the *lb()* function. 
+
+For group 1:
+
+```{r}
+g1 <- lb(ONPG[ , c(1,2)])
+```
+
+For group 5:
+
+```{r}
+g5 <- lb(ONPG[ , c(1,6)])
+```
+
+
+For group 7:
+
+```{r}
+g8 <- lb(ONPG[ , c(1,8)])
+```
+
+
+These results seem to be quite perplexing. It looks like if each group had used a different enzyme! Even worse, group 7 obtains negative $K_m$ and $V_{max}$. These results are frustrating for the students, and an inexperienced instructor might be tempted to justify them appealing to a lack of skill of the student to generate precise data, which would be an awful mistake since, as we will show next, the quality of data from
+all the groups, including group 7, is good enough to obtain a reliable estimate of the β-galactosidase kinetic parameters when the analysis is properly carried out. To this end, all we have to do is to carry out a weighted linear regression of data, as it was suggested originally by Lineweaver and Burk (for details, see doi = 10.1002/bmb.21522).
+
+Now, let's re-examine the data introducing weighted regression. 
+
+For group 1:
+
+```{r}
+wg1 <- lb(ONPG[ , c(1,2)], weighting = TRUE)
+```
+
+For group 5:
+
+```{r}
+wg5 <- lb(ONPG[ , c(1,6)], weighting = TRUE)
+```
+
+For group 7:
+
+```{r}
+g7 <- lb(ONPG[ , c(1,8)], weighting = TRUE)
+```
+
+
+
+
+As it can be observed, after analyzing the data using weighted regression, all the groups obtain similar estimates of $K_m$ and $V_{max}$, which does not happen when we do not weight our analyses.
+
+```{r include=FALSE}
+DR <- as.data.frame(matrix(rep(NA, 8 * 5), ncol = 5))
+names(DR) <- c('uw_Km', 'uw_Vm', 'R2', 'w_Km', 'w_Vm')
+for (i in 1:(ncol(ONPG) - 1)){
+  d <- ONPG[, c(1, i+1)]
+  t <- lb(d, weighting = TRUE, plot = FALSE)
+  DR$uw_Km[i] <- t$Kms
+  DR$uw_Vm[i] <- t$Vms
+  DR$R2[i] <- t$R2s
+  DR$w_Km[i] <- t$fitted_parameters[1]
+  DR$w_Vm[i] <- t$fitted_parameters[2]
+}
+```
+
+```{r echo=FALSE}
+k <- data.frame(Km = c(DR$uw_Km, DR$w_Km), Vm = c(DR$uw_Vm, DR$w_Vm))
+k$weight <- c(rep(FALSE, 8), rep(TRUE, 8))
+boxplot(k$Km ~ k$weight, xlab = "Weighted analysis", ylab = "Km (mM)")
+```
+
+## Hanes-Woolf
+
+Multiplying both sides of the equation 1 by [S] we reach:
+
+\begin{equation}
+\tag{2}
+\frac{[S]}{v} = \frac{1}{V_{max}} [S] + \frac{K_m}{V_{max}} 
+\end{equation}
+
+The function *hw()* takes as argument the original data $([S], v)$ and transform them to $([S], \frac{[S]}{v})$ and afterwards it fits these transformed variables to the equation of a line to estimate the kinetic parameters. Let's illustrate the use of this function with the data from group 7:
+
+```{r}
+hw7 <- hw(ONPG[ , c(1,8)], unit_v = 'uM/min')
+```
+
+After all, the data generated by the group 7 do not seem as bad as we might have believed when we analyze them using unweighted double-reciprocal analysis.
+
+
+## Eadie-Hofstee
+
+Multiplying both sides of the equation 1 by $v V_{max}$ we reach:
+
+\begin{equation}
+\tag{3}
+v = -K_m \frac{v}{[S]} + V_{max}
+\end{equation}
+
+We will use again data from group 7 to carry out the analysis:
+
+```{r}
+eh7 <- eh(ONPG[ , c(1,8)], unit_v = 'uM/min')
+```
+
+
+## Eisenthal & Cornish-Bowden
+
+Finally we will illustrate this alternative method using again the original data from group 7.
+
+```{r}
+ecb7 <- ecb(ONPG[ , c(1,8)], unit_v = "uM/min")
+ecb7$Km
+ecb7$Vm
+```
