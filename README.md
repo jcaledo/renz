@@ -2,15 +2,12 @@
 
 R package for the analysis of kinetic data from enzyme-catalyzed reactions.
 
-## Contributing
+## Citing renz
 
-We are always interested in improving and adding additional functionality to _renz_. If you have ideas, suggestions or code that your would like to distribute as part of this package, please contact us (see below).
-You are encouraged to contribute your code or issues directly to this repository. 
+Aledo, J.C. renz: An R package for the analysis of enzyme kinetic data. BMC Bioinformatics 23, 182 (2022).
+https://doi.org/10.1186/s12859-022-04729-4
 
 ## Contact
 
 Your are welcome to:
-
-* Submit suggestions and bug-reports at: https://bitbucket.org/jcaledo/renz/issues
-* Send a pull request on: https://bitbucket.org/jcaledo/renz/pull-request
 * Send us an email to: caledo@uma.es
